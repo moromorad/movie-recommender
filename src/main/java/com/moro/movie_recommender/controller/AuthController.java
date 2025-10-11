@@ -42,7 +42,7 @@ public class AuthController {
         this.props = props;
         this.traktService = traktService;
     }
-//i love shady sacklawi
+
     /**
      * Starts the OAuth authorization by redirecting the user to Trakt's authorize URL.
      *
