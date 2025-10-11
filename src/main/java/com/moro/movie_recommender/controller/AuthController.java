@@ -82,7 +82,7 @@ public class AuthController {
                         .thenReturn(ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/")).build())
                 );
     }
-//i was here
+
     /**
      * Stores the access token from the token response into the session.
      * The token is later read by API controllers when calling Trakt.
