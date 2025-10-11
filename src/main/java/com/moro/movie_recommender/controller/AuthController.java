@@ -32,7 +32,11 @@ public class AuthController {
     private final TraktProperties props;
     private final TraktService traktService;
 
+    
+    // test comment
+    
     /**
+     * 
      * Constructs the controller with configuration and Trakt service client.
      *
      * @param props         Trakt configuration properties (client id/secret, redirect URI, bases)
