@@ -31,9 +31,6 @@ public class AuthController {
 
     private final TraktProperties props;
     private final TraktService traktService;
-
-    // test comment 2 
-    // test comment
     
     /**
      * 
