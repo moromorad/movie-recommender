@@ -11,8 +11,16 @@
     </style>
   </head>
   <body>
-    <h1>Hello, World!</h1>
-    <p>If you can read this, the app is running.</p>
+    <h1>Movie Recommender</h1>
+    <p>This app integrates with Trakt. Start by connecting your account.</p>
+    <p>
+      <a href="/auth/trakt/login" style="display:inline-block;padding:.6rem 1rem;background:#ED1C24;color:#fff;border-radius:6px;text-decoration:none;">
+        Connect Trakt
+      </a>
+    </p>
+    <p>
+      After connecting, try calling <code>/api/movies/watched</code> (e.g., with curl):
+    </p>
+    <pre>curl -i http://localhost:8080/api/movies/watched</pre>
   </body>
   </html>
-
