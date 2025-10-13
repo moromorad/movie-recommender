@@ -9,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -63,15 +64,60 @@ public class TraktService {
     /**
      * Fetches the user's watched movies from Trakt at
      * {@code GET /sync/watched/movies?extended=full}.
+     * Also fetches user ratings and merges them into the movie objects.
      *
      * @param accessToken bearer token obtained via OAuth exchange
-     * @return a Flux streaming watched items mapped to DTOs
+     * @return a Flux streaming watched items mapped to DTOs with ratings
      */
     public Flux<TraktWatchedItemDTO> getWatchedMovies(String accessToken) {
-        return webClient.get()
+        // Fetch both watched movies and ratings in parallel
+        Flux<TraktWatchedItemDTO> watchedMovies = webClient.get()
                 .uri("/sync/watched/movies?extended=full")
                 .headers(h -> h.setBearerAuth(accessToken))
                 .retrieve()
                 .bodyToFlux(TraktWatchedItemDTO.class);
+
+        Flux<Map<String, Object>> ratings = getUserRatings(accessToken);
+
+        // Combine watched movies with ratings
+        return watchedMovies.zipWith(ratings.collectList().flux().repeat())
+                .map(tuple -> {
+                    TraktWatchedItemDTO watchedItem = tuple.getT1();
+                    List<Map<String, Object>> ratingsList = tuple.getT2();
+                    
+                    // Find matching rating for this movie using trakt ID
+                    Long movieTraktId = watchedItem.getMovie().getIds().getTrakt();
+                    Integer userRating = ratingsList.stream()
+                            .filter(rating -> {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> movie = (Map<String, Object>) rating.get("movie");
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> ids = (Map<String, Object>) movie.get("ids");
+                                Object traktId = ids.get("trakt");
+                                return movieTraktId != null && movieTraktId.equals(traktId);
+                            })
+                            .map(rating -> (Integer) rating.get("rating"))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    // Set the user rating on the movie
+                    watchedItem.getMovie().setUserRating(userRating);
+                    return watchedItem;
+                });
+    }
+
+    /**
+     * Fetches the user's movie ratings from Trakt at
+     * {@code GET /sync/ratings/movies}.
+     *
+     * @param accessToken bearer token obtained via OAuth exchange
+     * @return a Flux streaming rating objects
+     */
+    public Flux<Map<String, Object>> getUserRatings(String accessToken) {
+        return webClient.get()
+                .uri("/sync/ratings/movies")
+                .headers(h -> h.setBearerAuth(accessToken))
+                .retrieve()
+                .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 }

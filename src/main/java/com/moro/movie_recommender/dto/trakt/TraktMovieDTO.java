@@ -8,6 +8,7 @@ public class TraktMovieDTO {
     private String title;
     private Integer year;
     private TraktIdsDTO ids;
+    private Integer userRating; // User's personal rating (1-10), null if not rated
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -17,4 +18,7 @@ public class TraktMovieDTO {
 
     public TraktIdsDTO getIds() { return ids; }
     public void setIds(TraktIdsDTO ids) { this.ids = ids; }
+
+    public Integer getUserRating() { return userRating; }
+    public void setUserRating(Integer userRating) { this.userRating = userRating; }
 }

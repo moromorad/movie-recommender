@@ -8,6 +8,7 @@ public class TraktIdsDTO {
     private Long trakt;
     private String imdb;
     private Long tmdb;
+    private String slug;
 
     public Long getTrakt() { return trakt; }
     public void setTrakt(Long trakt) { this.trakt = trakt; }
@@ -17,4 +18,7 @@ public class TraktIdsDTO {
 
     public Long getTmdb() { return tmdb; }
     public void setTmdb(Long tmdb) { this.tmdb = tmdb; }
+
+    public String getSlug() { return slug; }
+    public void setSlug(String slug) { this.slug = slug; }
 }
