@@ -2,6 +2,8 @@ package com.moro.movie_recommender.service;
 
 import com.moro.movie_recommender.config.TraktProperties;
 import com.moro.movie_recommender.dto.trakt.TraktWatchedItemDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,8 @@ import java.util.Map;
 @Service
 public class TraktService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TraktService.class);
+    
     private final WebClient webClient;
     private final TraktProperties props;
 
@@ -77,33 +81,104 @@ public class TraktService {
                 .retrieve()
                 .bodyToFlux(TraktWatchedItemDTO.class);
 
-        Flux<Map<String, Object>> ratings = getUserRatings(accessToken);
+        // Fetch all ratings once and cache them
+        Mono<List<Map<String, Object>>> ratingsMono = getUserRatings(accessToken).collectList();
 
         // Combine watched movies with ratings
-        return watchedMovies.zipWith(ratings.collectList().flux().repeat())
-                .map(tuple -> {
-                    TraktWatchedItemDTO watchedItem = tuple.getT1();
-                    List<Map<String, Object>> ratingsList = tuple.getT2();
-                    
-                    // Find matching rating for this movie using trakt ID
-                    Long movieTraktId = watchedItem.getMovie().getIds().getTrakt();
-                    Integer userRating = ratingsList.stream()
-                            .filter(rating -> {
-                                @SuppressWarnings("unchecked")
-                                Map<String, Object> movie = (Map<String, Object>) rating.get("movie");
-                                @SuppressWarnings("unchecked")
-                                Map<String, Object> ids = (Map<String, Object>) movie.get("ids");
-                                Object traktId = ids.get("trakt");
-                                return movieTraktId != null && movieTraktId.equals(traktId);
-                            })
-                            .map(rating -> (Integer) rating.get("rating"))
-                            .findFirst()
-                            .orElse(null);
-                    
-                    // Set the user rating on the movie
-                    watchedItem.getMovie().setUserRating(userRating);
-                    return watchedItem;
-                });
+        return watchedMovies.flatMap(watchedItem -> 
+            ratingsMono.map(ratingsList -> {
+                // Find matching rating for this movie using trakt ID
+                Long movieTraktId = watchedItem.getMovie().getIds().getTrakt();
+                Integer userRating = findUserRatingForMovie(ratingsList, movieTraktId);
+                
+                // Set the user rating on the movie (null if no rating found)
+                watchedItem.getMovie().setUserRating(userRating);
+                
+                // Log rating status for debugging
+                if (userRating != null) {
+                    logger.debug("Found rating {} for movie '{}' (Trakt ID: {})", 
+                        userRating, watchedItem.getMovie().getTitle(), movieTraktId);
+                } else {
+                    logger.debug("No rating found for movie '{}' (Trakt ID: {})", 
+                        watchedItem.getMovie().getTitle(), movieTraktId);
+                }
+                
+                return watchedItem;
+            })
+        );
+    }
+
+    /**
+     * Fetches the currently authenticated Trakt user's profile using the provided access token.
+     * Tries to be resilient by returning a generic map shape.
+     */
+    public Mono<Map<String, Object>> getCurrentUser(String accessToken) {
+        return webClient.get()
+                .uri("/users/me")
+                .headers(h -> h.setBearerAuth(accessToken))
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
+    }
+
+    /**
+     * Finds the user rating for a specific movie by its Trakt ID.
+     * Returns null if no rating is found.
+     *
+     * @param ratingsList list of all user ratings
+     * @param movieTraktId the Trakt ID of the movie to find rating for
+     * @return the user rating (1-10) or null if not found
+     */
+    private Integer findUserRatingForMovie(List<Map<String, Object>> ratingsList, Long movieTraktId) {
+        if (movieTraktId == null || ratingsList == null) {
+            return null;
+        }
+
+        return ratingsList.stream()
+                .filter(rating -> {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> movie = (Map<String, Object>) rating.get("movie");
+                        if (movie == null) return false;
+                        
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> ids = (Map<String, Object>) movie.get("ids");
+                        if (ids == null) return false;
+                        
+                        Object traktIdObj = ids.get("trakt");
+                        if (traktIdObj == null) return false;
+                        
+                        // Handle both Integer and Long trakt IDs
+                        Long traktId = null;
+                        if (traktIdObj instanceof Integer) {
+                            traktId = ((Integer) traktIdObj).longValue();
+                        } else if (traktIdObj instanceof Long) {
+                            traktId = (Long) traktIdObj;
+                        }
+                        
+                        return movieTraktId.equals(traktId);
+                    } catch (Exception e) {
+                        // Log error but continue processing other ratings
+                        logger.debug("Error parsing rating for movie ID {}: {}", movieTraktId, e.getMessage());
+                        return false;
+                    }
+                })
+                .map(rating -> {
+                    try {
+                        Object ratingObj = rating.get("rating");
+                        if (ratingObj instanceof Integer) {
+                            return (Integer) ratingObj;
+                        } else if (ratingObj instanceof Long) {
+                            return ((Long) ratingObj).intValue();
+                        }
+                        return null;
+                    } catch (Exception e) {
+                        logger.debug("Error extracting rating value: {}", e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(rating -> rating != null && rating >= 1 && rating <= 10)
+                .findFirst()
+                .orElse(null);
     }
 
     /**

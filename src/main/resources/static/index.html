@@ -5,22 +5,269 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Movie Recommender</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; }
-      h1 { margin: 0 0 0.5rem; }
-      p { color: #555; }
+      :root {
+        --accent: #2563eb;
+        --accent-2: #1d4ed8;
+        --danger: #dc2626;
+        --bg: #f8fafc;
+        --text: #0f172a;
+        --muted: #64748b;
+        --card: #ffffff;
+        --border: #e2e8f0;
+      }
+      html, body { height: 100%; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+      header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--card); position: sticky; top: 0; }
+      h1 { margin: 0; font-size: 1.25rem; }
+      main { padding: 1.25rem; max-width: 1100px; margin: 0 auto; }
+      .row { display: grid; grid-template-columns: 380px 1fr; gap: 1rem; align-items: start; }
+      .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; box-shadow: 0 1px 0 rgba(0,0,0,.02); }
+      .muted { color: var(--muted); }
+      label { display:block; font-size: .85rem; color: var(--muted); margin: .25rem 0; }
+      input[type="text"], input[type="number"] { width: 100%; padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 8px; outline: none; }
+      input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+      .btn { display:inline-flex; align-items:center; gap:.4rem; padding: .55rem .8rem; border-radius: 8px; border: 1px solid var(--border); background:#fff; cursor:pointer; }
+      .btn.primary { background: var(--accent); color:#fff; border-color: var(--accent); }
+      .btn.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+      .btn.ghost { background: transparent; }
+      .btn.danger { background: var(--danger); border-color: var(--danger); color:#fff; }
+      .stack { display: flex; flex-direction: column; gap: .6rem; }
+      .row-inline { display:flex; gap:.5rem; align-items:center; flex-wrap: wrap; }
+      .separator { height:1px; background: var(--border); margin:.75rem 0; }
+      .user { border: 1px solid var(--border); border-radius: 8px; padding: .75rem; margin:.5rem 0; background:#fff; }
+      .user header { display:flex; justify-content: space-between; align-items:center; padding:0; border:none; background:transparent; position: static; }
+      .pill { font-size:.7rem; padding:.15rem .4rem; border-radius:999px; border:1px solid var(--border); background:#f1f5f9; color:#334155; }
+      .movie-list { margin:.5rem 0 0; padding-left: 1rem; }
+      .movie-list li { margin:.15rem 0; }
+      .error { color: var(--danger); font-size: .9rem; }
+      details summary { cursor: pointer; }
+      .small { font-size:.85rem; }
+      .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:.5rem; }
     </style>
   </head>
   <body>
-    <h1>Movie Recommender</h1>
-    <p>This app integrates with Trakt. Start by connecting your account.</p>
-    <p>
-      <a href="/auth/trakt/login" style="display:inline-block;padding:.6rem 1rem;background:#ED1C24;color:#fff;border-radius:6px;text-decoration:none;">
-        Connect Trakt
-      </a>
-    </p>
-    <p>
-      After connecting, try calling <code>/api/movies/watched</code> (e.g., with curl):
-    </p>
-    <pre>curl -i http://localhost:8080/api/movies/watched</pre>
+    <header>
+      <h1>Movie Recommender</h1>
+    </header>
+    <main>
+      <div class="row">
+        <section class="card">
+          <h2 class="small" style="margin:0 0 .5rem;">Add User</h2>
+          <div class="stack">
+            <div>
+              <label for="user-name">Name</label>
+              <input id="user-name" type="text" placeholder="e.g. alice" />
+            </div>
+            <div>
+              <label>Trakt Option</label>
+              <div class="row-inline">
+                <label class="row-inline"><input type="radio" name="trakt-opt" value="no" checked> No Trakt (manual movies)</label>
+                <label class="row-inline"><input type="radio" name="trakt-opt" value="link"> Link Trakt now</label>
+              </div>
+            </div>
+            <div class="row-inline">
+              <button id="create-user" class="btn primary">Create User</button>
+              <span id="create-user-error" class="error" role="alert" aria-live="polite"></span>
+            </div>
+            <div class="separator"></div>
+            <details>
+              <summary class="small muted">Manual Movie Entry (any user)</summary>
+              <div class="stack" style="margin-top:.5rem;">
+                <div>
+                  <label for="manual-user">User</label>
+                  <input id="manual-user" type="text" placeholder="existing user name" />
+                </div>
+                <div class="grid-2">
+                  <div>
+                    <label for="movie-title">Title</label>
+                    <input id="movie-title" type="text" placeholder="Movie title" />
+                  </div>
+                  <div>
+                    <label for="movie-year">Year</label>
+                    <input id="movie-year" type="number" placeholder="e.g. 2020" />
+                  </div>
+                </div>
+                <div>
+                  <label for="movie-rating">User Rating (1–10, optional)</label>
+                  <input id="movie-rating" type="number" min="1" max="10" placeholder="e.g. 8" />
+                </div>
+                <div class="row-inline">
+                  <button id="add-movie" class="btn">Add Movie</button>
+                  <span id="manual-error" class="error" role="alert" aria-live="polite"></span>
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="small" style="margin:0 0 .5rem;">Users</h2>
+          <div id="users" class="stack">
+            <div class="muted small">Loading users…</div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const el = (sel, root=document) => root.querySelector(sel);
+      const els = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+      async function api(path, opts) {
+        const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch {}
+        return { ok: res.ok, status: res.status, data };
+      }
+
+      async function fetchUsers() {
+        const { ok, data } = await api('/api/users');
+        if (!ok || !data) { renderUsers({}); return; }
+        // data is Map<String, User>
+        renderUsers(data);
+      }
+
+      function renderUsers(usersMap) {
+        const container = el('#users');
+        container.innerHTML = '';
+        const names = Object.keys(usersMap).sort();
+        if (names.length === 0) {
+          container.innerHTML = '<div class="muted small">No users yet. Create one on the left.</div>';
+          return;
+        }
+        names.forEach(name => {
+          const user = usersMap[name];
+          const hasTrakt = !!(user && user.traktAccount && user.traktAccount.accessToken);
+          const traktUser = hasTrakt && user.traktAccount && user.traktAccount.traktUsername ? user.traktAccount.traktUsername : '';
+          const pillLabel = hasTrakt ? `Trakt${traktUser ? ' (@'+escapeHtml(traktUser)+')' : ''}` : 'Manual';
+          const root = document.createElement('div');
+          root.className = 'user';
+          root.innerHTML = `
+            <header>
+              <div>
+                <strong>${escapeHtml(name)}</strong>
+                <span class="pill" title="${hasTrakt ? 'Linked to Trakt' : 'Manual only'}">${pillLabel}</span>
+              </div>
+              <div class="row-inline">
+                ${hasTrakt ? `<button class="btn" data-act="sync" data-user="${escapeAttr(name)}">Sync</button>` :
+                              `<a class="btn" href="/api/users/${encodeURIComponent(name)}/trakt/link">Link Trakt</a>`}
+                <button class="btn danger" data-act="delete" data-user="${escapeAttr(name)}">Delete</button>
+              </div>
+            </header>
+            <div class="small muted" style="margin-top:.25rem;">Watched Movies</div>
+            <ul class="movie-list" id="movies-${escapeAttr(name)}"></ul>
+          `;
+          container.appendChild(root);
+          loadMovies(name);
+        });
+        container.addEventListener('click', onUsersClick, { once: true });
+      }
+
+      async function loadMovies(userName) {
+        const list = el(`#movies-${CSS.escape(userName)}`);
+        list.innerHTML = '<li class="muted small">Loading…</li>';
+        const { ok, data } = await api(`/api/movies/${encodeURIComponent(userName)}/all`);
+        if (!ok || !data || !data.allMovies) {
+          list.innerHTML = '<li class="muted small">No movies.</li>';
+          return;
+        }
+        const items = data.allMovies;
+        if (!Array.isArray(items) || items.length === 0) {
+          list.innerHTML = '<li class="muted small">No movies.</li>';
+          return;
+        }
+        list.innerHTML = '';
+        items.forEach(m => {
+          const title = m.title ?? '(untitled)';
+          const year = m.year ?? '';
+          const rating = (m.userRating != null) ? ` — ★${m.userRating}` : '';
+          const li = document.createElement('li');
+          li.textContent = `${title} ${year ? '('+year+')' : ''}${rating}`;
+          list.appendChild(li);
+        });
+      }
+
+      function onUsersClick(e) {
+        const btn = e.target.closest('button, a');
+        if (!btn) return;
+        const user = btn.getAttribute('data-user');
+        const act = btn.getAttribute('data-act');
+        if (act === 'sync' && user) {
+          e.preventDefault();
+          doSync(user);
+        } else if (act === 'delete' && user) {
+          e.preventDefault();
+          doDelete(user);
+        }
+      }
+
+      async function doSync(user) {
+        const { ok } = await api(`/api/movies/${encodeURIComponent(user)}/sync`, { method: 'POST' });
+        if (ok) { await fetchUsers(); }
+      }
+
+      async function doDelete(user) {
+        if (!confirm(`Delete user "${user}"?`)) return;
+        const { ok } = await api(`/api/users/${encodeURIComponent(user)}`, { method: 'DELETE' });
+        if (ok) { await fetchUsers(); }
+      }
+
+      function selectedTraktOption() {
+        const r = els('input[name="trakt-opt"]').find(i => i.checked);
+        return r ? r.value : 'no';
+      }
+
+      el('#create-user').addEventListener('click', async () => {
+        const nameEl = el('#user-name');
+        const errEl = el('#create-user-error');
+        errEl.textContent = '';
+        const name = nameEl.value.trim();
+        if (!name) { errEl.textContent = 'Please enter a name.'; return; }
+        const res = await api('/api/users', { method: 'POST', body: JSON.stringify({ name }) });
+        if (!res.ok) {
+          if (res.status === 409) errEl.textContent = 'User already exists.';
+          else errEl.textContent = 'Failed to create user.';
+          return;
+        }
+        if (selectedTraktOption() === 'link') {
+          // Redirect to user-specific Trakt link flow
+          window.location.href = `/api/users/${encodeURIComponent(name)}/trakt/link`;
+          return;
+        }
+        nameEl.value = '';
+        await fetchUsers();
+      });
+
+      el('#add-movie').addEventListener('click', async () => {
+        const user = el('#manual-user').value.trim();
+        const title = el('#movie-title').value.trim();
+        const year = el('#movie-year').value.trim();
+        const ratingVal = el('#movie-rating').value.trim();
+        const err = el('#manual-error');
+        err.textContent = '';
+        if (!user || !title || !year) { err.textContent = 'User, title, and year are required.'; return; }
+        const body = { title, year: Number(year) };
+        if (ratingVal) body.userRating = Number(ratingVal);
+        const { ok, data } = await api(`/api/movies/${encodeURIComponent(user)}/manual`, { method: 'POST', body: JSON.stringify(body) });
+        if (!ok) {
+          err.textContent = (data && data.error) ? data.error : 'Failed to add movie.';
+          return;
+        }
+        el('#movie-title').value = '';
+        el('#movie-year').value = '';
+        el('#movie-rating').value = '';
+        await fetchUsers();
+      });
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"]+/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+      }
+      function escapeAttr(str) {
+        return String(str).replace(/"/g, '&quot;');
+      }
+
+      fetchUsers();
+    </script>
   </body>
   </html>

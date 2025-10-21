@@ -1,10 +1,12 @@
 package com.moro.movie_recommender.dto.trakt;
 
+import com.moro.movie_recommender.dto.Movie;
+
 /**
  * Minimal movie representation as returned by Trakt API in many endpoints.
  * Includes human-readable fields and a nested {@link TraktIdsDTO} block.
  */
-public class TraktMovieDTO {
+public class TraktMovieDTO implements Movie {
     private String title;
     private Integer year;
     private TraktIdsDTO ids;
